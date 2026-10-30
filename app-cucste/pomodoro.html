@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>番茄钟倒计时</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f4f7fb;
+    padding: 24px 16px;
+    transition: background 0.5s;
+  }
+  body.break { background: #eefaf3; }
+  .app { text-align: center; width: 100%; max-width: 420px; }
+  .mode-tag {
+    display: inline-block;
+    padding: 6px 20px;
+    border-radius: 999px;
+    background: #1a6fc4;
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 2px;
+    margin-bottom: 24px;
+    transition: background 0.4s;
+  }
+  body.break .mode-tag { background: #2fae74; }
+  .ring-wrap { position: relative; width: 280px; height: 280px; margin: 0 auto 28px; }
+  .ring-wrap svg { transform: rotate(-90deg); }
+  .ring-bg { fill: none; stroke: #e3eaf2; stroke-width: 10; }
+  .ring-fg {
+    fill: none;
+    stroke: #1a6fc4;
+    stroke-width: 10;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 0.5s linear, stroke 0.4s;
+  }
+  body.break .ring-fg { stroke: #2fae74; }
+  .time-center {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .time {
+    font-size: 58px;
+    font-weight: 200;
+    color: #1a3a5c;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 2px;
+  }
+  body.break .time { color: #1e7a52; }
+  .session { font-size: 13px; color: #8496a8; margin-top: 6px; }
+  .controls { display: flex; gap: 14px; justify-content: center; margin-bottom: 26px; }
+  .controls button {
+    padding: 13px 34px;
+    font-size: 16px;
+    font-weight: 600;
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.15s, background 0.2s, box-shadow 0.2s;
+  }
+  .controls button:active { transform: scale(0.96); }
+  #startBtn { background: #1a6fc4; color: #fff; min-width: 130px; box-shadow: 0 6px 18px rgba(26,111,196,0.30); }
+  #startBtn:hover { background: #155a9e; }
+  body.break #startBtn { background: #2fae74; box-shadow: 0 6px 18px rgba(47,174,116,0.30); }
+  body.break #startBtn:hover { background: #26986245; }
+  #resetBtn { background: #fff; color: #5a6b7c; border: 1px solid #dbe4ec; }
+  #resetBtn:hover { background: #f6f9fc; }
+  .stats { display: flex; justify-content: center; gap: 32px; font-size: 13px; color: #8496a8; }
+  .stats b { display: block; font-size: 24px; color: #1a6fc4; font-weight: 600; margin-bottom: 2px; }
+  body.break .stats b { color: #2fae74; }
+  .settings { margin-top: 26px; font-size: 13px; color: #8496a8; line-height: 2; }
+  .settings span { color: #1a6fc4; font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="mode-tag" id="modeTag">专注 · 25 分钟</div>
+
+  <div class="ring-wrap">
+    <svg width="280" height="280" viewBox="0 0 280 280">
+      <circle class="ring-bg" cx="140" cy="140" r="125"></circle>
+      <circle class="ring-fg" id="ring" cx="140" cy="140" r="125"
+              stroke-dasharray="785.4" stroke-dashoffset="0"></circle>
+    </svg>
+    <div class="time-center">
+      <div class="time" id="time">25:00</div>
+      <div class="session" id="session">第 1 轮 · 番茄钟</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="startBtn">开始</button>
+    <button id="resetBtn">重置</button>
+  </div>
+
+  <div class="stats">
+    <div><b id="doneCount">0</b>已完成番茄</div>
+    <div><b id="cycleCount">0</b>今日轮次</div>
+  </div>
+
+  <div class="settings">
+    专注 <span>25</span> 分钟 · 短休息 <span>5</span> 分钟<br>
+    每完成 4 个番茄建议长休息一次
+  </div>
+</div>
+
+<script>
+  // ===== 配置（分钟） =====
+  var WORK_MIN = 25, BREAK_MIN = 5;
+  var CIRC = 785.4; // 圆环周长 2πr, r=125
+
+  // ===== 状态 =====
+  var mode = 'work';        // work | break
+  var total = WORK_MIN * 60; // 当前阶段总秒数
+  var remain = total;        // 剩余秒数
+  var running = false;
+  var timer = null;
+  var donePomodoros = Number(localStorage.getItem('pom_done') || 0);
+  var cycles = Number(localStorage.getItem('pom_cycle') || 0);
+
+  var timeEl = document.getElementById('time');
+  var ring = document.getElementById('ring');
+  var startBtn = document.getElementById('startBtn');
+
+  // ===== 格式化 mm:ss =====
+  function fmt(s) {
+    var m = Math.floor(s / 60), sec = s % 60;
+    return (m < 10 ? '0' : '') + m + ':' + (sec < 10 ? '0' : '') + sec;
+  }
+
+  // ===== 更新界面 =====
+  function update() {
+    timeEl.textContent = fmt(remain);
+    // 进度环：剩余比例映射到 dashoffset
+    ring.setAttribute('stroke-dashoffset', (CIRC * (1 - remain / total)).toFixed(1));
+    document.title = fmt(remain) + ' · 番茄钟';
+    document.getElementById('doneCount').textContent = donePomodoros;
+    document.getElementById('cycleCount').textContent = cycles;
+  }
+
+  // ===== 切换阶段（专注 ⇄ 休息） =====
+  function switchMode() {
+    if (mode === 'work') {
+      donePomodoros++; cycles++;
+      localStorage.setItem('pom_done', donePomodoros);
+      localStorage.setItem('pom_cycle', cycles);
+      mode = 'break'; total = BREAK_MIN * 60;
+      document.body.classList.add('break');
+      document.getElementById('modeTag').textContent = '休息 · 5 分钟';
+      document.getElementById('session').textContent = '放松一下，喝口水';
+    } else {
+      mode = 'work'; total = WORK_MIN * 60;
+      document.body.classList.remove('break');
+      document.getElementById('modeTag').textContent = '专注 · 25 分钟';
+      var next = Math.floor(donePomodoros / 4) + 1;
+      document.getElementById('session').textContent = '第 ' + next + ' 轮 · 番茄钟';
+    }
+    remain = total;
+    update();
+    beep(); // 阶段结束提示音
+  }
+
+  // ===== 每秒倒计时 =====
+  function tick() {
+    remain--;
+    if (remain <= 0) { switchMode(); }
+    update();
+  }
+
+  // ===== 开始 / 暂停 =====
+  startBtn.addEventListener('click', function() {
+    running = !running;
+    if (running) {
+      startBtn.textContent = '暂停';
+      timer = setInterval(tick, 1000);
+    } else {
+      startBtn.textContent = '继续';
+      clearInterval(timer);
+    }
+  });
+
+  // ===== 重置当前阶段 =====
+  document.getElementById('resetBtn').addEventListener('click', function() {
+    clearInterval(timer);
+    running = false;
+    startBtn.textContent = '开始';
+    remain = total;
+    update();
+  });
+
+  // ===== 简易提示音（Web Audio API） =====
+  function beep() {
+    try {
+      var ctx = new (window.AudioContext || window.webkitAudioContext)();
+      var o = ctx.createOscillator(), g = ctx.createGain();
+      o.connect(g); g.connect(ctx.destination);
+      o.frequency.value = 880; o.type = 'sine';
+      g.gain.setValueAtTime(0.25, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.6);
+      o.start(); o.stop(ctx.currentTime + 0.6);
+    } catch (e) { /* 忽略音频不可用 */ }
+  }
+
+  // 初始化
+  update();
+</script>
+</body>
+</html>

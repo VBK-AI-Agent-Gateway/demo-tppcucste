@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天气查询小工具</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+    background: linear-gradient(135deg, #4a90d9 0%, #1a6fc4 50%, #0f4c81 100%);
+  }
+  .card {
+    width: 100%;
+    max-width: 420px;
+    background: rgba(255, 255, 255, 0.14);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 24px;
+    padding: 36px 32px;
+    color: #fff;
+    box-shadow: 0 16px 48px rgba(0, 0, 0, 0.25);
+  }
+  h1 { font-size: 22px; margin-bottom: 6px; text-align: center; }
+  .sub { font-size: 13px; opacity: 0.8; text-align: center; margin-bottom: 26px; }
+  .search { display: flex; gap: 10px; margin-bottom: 30px; }
+  .search input {
+    flex: 1;
+    padding: 13px 16px;
+    border: 1px solid rgba(255, 255, 255, 0.35);
+    background: rgba(255, 255, 255, 0.18);
+    border-radius: 12px;
+    color: #fff;
+    font-size: 15px;
+    outline: none;
+  }
+  .search input::placeholder { color: rgba(255, 255, 255, 0.7); }
+  .search input:focus { border-color: #fff; background: rgba(255, 255, 255, 0.26); }
+  .search button {
+    padding: 0 22px;
+    background: #fff;
+    color: #1a6fc4;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  .search button:hover { transform: translateY(-2px); }
+  .result { text-align: center; min-height: 260px; }
+  .icon { font-size: 76px; line-height: 1; margin-bottom: 8px; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.25)); }
+  .city { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .desc { font-size: 15px; opacity: 0.9; margin-bottom: 6px; }
+  .temp { font-size: 64px; font-weight: 200; letter-spacing: -2px; margin-bottom: 18px; }
+  .temp small { font-size: 26px; font-weight: 300; vertical-align: super; }
+  .details {
+    display: flex;
+    justify-content: space-around;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 14px;
+    padding: 14px 8px;
+  }
+  .details div { text-align: center; }
+  .details .label { font-size: 12px; opacity: 0.8; margin-bottom: 4px; }
+  .details .val { font-size: 16px; font-weight: 600; }
+  .placeholder { opacity: 0.85; padding-top: 70px; }
+  .placeholder .big { font-size: 52px; margin-bottom: 12px; }
+  .placeholder p { font-size: 14px; line-height: 1.7; }
+  .loading { padding-top: 90px; font-size: 15px; opacity: 0.9; }
+  .error { padding-top: 80px; color: #ffd7d7; font-size: 15px; }
+  .tip { margin-top: 18px; font-size: 12px; opacity: 0.75; text-align: center; line-height: 1.6; }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>天气查询</h1>
+  <p class="sub">输入城市名，查看当前温度与天气</p>
+
+  <div class="search">
+    <input id="cityInput" type="text" placeholder="如：北京 / 上海 / 广州" maxlength="20">
+    <button id="searchBtn">查询</button>
+  </div>
+
+  <div class="result" id="result">
+    <div class="placeholder">
+      <div class="big">🌤️</div>
+      <p>输入城市开始查询<br>支持国内主要城市</p>
+    </div>
+  </div>
+
+  <p class="tip">数据为本地模拟演示，用于展示交互与界面效果</p>
+</div>
+
+<script>
+  // ===== 天气图标映射（按天气代码） =====
+  var ICONS = {
+    sunny: '☀️', cloudy: '⛅', overcast: '☁️', rain: '🌧️',
+    storm: '⛈️', snow: '❄️', fog: '🌫️', wind: '💨'
+  };
+
+  // ===== 模拟天气数据（按城市关键词匹配，演示用） =====
+  var DEMO = [
+    { key: ['北京', 'beijing'], city: '北京', type: 'sunny', desc: '晴', temp: 26, hum: 38, wind: '西北风 3级', aqi: '良' },
+    { key: ['上海', 'shanghai'], city: '上海', type: 'cloudy', desc: '多云', temp: 24, hum: 65, wind: '东南风 2级', aqi: '优' },
+    { key: ['广州', 'guangzhou', '深圳', 'shenzhen'], city: '广州', type: 'rain', desc: '小雨', temp: 28, hum: 82, wind: '南风 2级', aqi: '良' },
+    { key: ['成都', 'chengdu'], city: '成都', type: 'overcast', desc: '阴', temp: 22, hum: 74, wind: '东北风 1级', aqi: '良' },
+    { key: ['哈尔滨', 'harbin', '长春'], city: '哈尔滨', type: 'snow', desc: '小雪', temp: -6, hum: 70, wind: '北风 4级', aqi: '优' },
+    { key: ['乌鲁木齐', 'xinjiang'], city: '乌鲁木齐', type: 'wind', desc: '大风', temp: 8, hum: 30, wind: '西风 6级', aqi: '优' },
+    { key: ['武汉', 'wuhan'], city: '武汉', type: 'storm', desc: '雷阵雨', temp: 30, hum: 88, wind: '西南风 3级', aqi: '良' },
+    { key: ['海口', 'sanya', '三亚'], city: '海口', type: 'sunny', desc: '晴热', temp: 33, hum: 76, wind: '南风 2级', aqi: '优' }
+  ];
+
+  // 根据城市名匹配数据，未匹配则按名称哈希生成稳定模拟值
+  function getWeather(city) {
+    var q = city.trim().toLowerCase();
+    for (var i = 0; i < DEMO.length; i++) {
+      for (var j = 0; j < DEMO[i].key.length; j++) {
+        if (q === DEMO[i].key[j] || q.indexOf(DEMO[i].key[j]) !== -1 || DEMO[i].key[j].indexOf(q) !== -1) {
+          return DEMO[i];
+        }
+      }
+    }
+    // 未命中：用字符串哈希生成可复现的模拟数据
+    var h = 0;
+    for (var k = 0; k < q.length; k++) h = (h * 31 + q.charCodeAt(k)) >>> 0;
+    var types = ['sunny', 'cloudy', 'overcast', 'rain', 'fog'];
+    var descs = { sunny: '晴', cloudy: '多云', overcast: '阴', rain: '小雨', fog: '雾' };
+    var t = types[h % types.length];
+    return {
+      city: city.trim(), type: t, desc: descs[t],
+      temp: -5 + (h % 40), hum: 30 + (h % 60),
+      wind: ['东风', '南风', '西风', '北风'][h % 4] + ' ' + (1 + h % 5) + '级',
+      aqi: ['优', '良', '轻度'][h % 3]
+    };
+  }
+
+  // ===== 渲染结果 =====
+  function render(w) {
+    document.getElementById('result').innerHTML =
+      '<div class="icon">' + ICONS[w.type] + '</div>' +
+      '<div class="city">' + escapeHtml(w.city) + '</div>' +
+      '<div class="desc">' + w.desc + '</div>' +
+      '<div class="temp">' + w.temp + '<small>°C</small></div>' +
+      '<div class="details">' +
+        '<div><div class="label">湿度</div><div class="val">' + w.hum + '%</div></div>' +
+        '<div><div class="label">风力</div><div class="val">' + w.wind + '</div></div>' +
+        '<div><div class="label">空气质量</div><div class="val">' + w.aqi + '</div></div>' +
+      '</div>';
+  }
+
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function search() {
+    var city = document.getElementById('cityInput').value.trim();
+    if (!city) { document.getElementById('cityInput').focus(); return; }
+    document.getElementById('result').innerHTML = '<div class="loading">查询中…</div>';
+    // 模拟网络延迟 400ms，展示加载态
+    setTimeout(function() { render(getWeather(city)); }, 400);
+  }
+
+  document.getElementById('searchBtn').addEventListener('click', search);
+  document.getElementById('cityInput').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') search();
+  });
+</script>
+</body>
+</html>

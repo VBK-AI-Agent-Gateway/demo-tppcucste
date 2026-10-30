@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>待办事项列表</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif; background:#f0f5fb; color:#333; min-height:100vh; }
+.app { max-width:900px; margin:0 auto; padding:24px 16px; }
+.header { background:linear-gradient(135deg,#1a6fc4,#2d8ce0); color:#fff; border-radius:12px; padding:24px; margin-bottom:16px; }
+.header h1 { font-size:22px; margin-bottom:6px; }
+.header p { font-size:13px; opacity:.85; }
+.card { background:#fff; border-radius:12px; padding:20px; margin-bottom:16px; box-shadow:0 2px 8px rgba(0,0,0,.05); }
+.input-row { display:flex; gap:8px; }
+.input-row input { flex:1; border:1px solid #d8e2ee; border-radius:8px; padding:12px; font-size:15px; outline:none; transition:border .2s; }
+.input-row input:focus { border-color:#1a6fc4; }
+.input-row button { background:#1a6fc4; color:#fff; border:none; border-radius:8px; padding:0 20px; font-size:15px; cursor:pointer; transition:background .2s; }
+.input-row button:hover { background:#155ba3; }
+.stats { display:flex; gap:12px; margin-bottom:16px; }
+.stat { flex:1; text-align:center; padding:12px; background:#eaf3fc; border-radius:8px; }
+.stat .num { font-size:22px; font-weight:700; color:#1a6fc4; }
+.stat .label { font-size:12px; color:#666; margin-top:2px; }
+.filters { display:flex; gap:8px; margin-bottom:16px; }
+.filters button { flex:1; padding:8px; border:1px solid #d8e2ee; background:#fff; border-radius:8px; cursor:pointer; font-size:14px; transition:all .2s; }
+.filters button.active { background:#1a6fc4; color:#fff; border-color:#1a6fc4; }
+.task-list { list-style:none; }
+.task { display:flex; align-items:center; padding:12px; border:1px solid #e8eef5; border-radius:8px; margin-bottom:8px; transition:background .2s; }
+.task:hover { background:#f7fafd; }
+.task .check { width:22px; height:22px; border:2px solid #c0cddd; border-radius:50%; cursor:pointer; margin-right:12px; flex-shrink:0; display:flex; align-items:center; justify-content:center; transition:all .2s; }
+.task .check:hover { border-color:#1a6fc4; }
+.task .check.done { background:#1a6fc4; border-color:#1a6fc4; }
+.task .check.done::after { content:'✓'; color:#fff; font-size:13px; font-weight:700; }
+.task .text { flex:1; font-size:15px; word-break:break-all; }
+.task .text.done { text-decoration:line-through; color:#999; }
+.task .del { background:none; border:none; color:#c0cddd; font-size:18px; cursor:pointer; padding:4px 8px; transition:color .2s; }
+.task .del:hover { color:#e05252; }
+.empty { text-align:center; color:#999; padding:40px 0; font-size:14px; }
+@media (max-width:600px) { .stats { flex-wrap:wrap; } .stat { min-width:calc(50% - 6px); } }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="header">
+    <h1>📋 待办事项列表</h1>
+    <p>添加、完成、删除任务，数据自动保存在本地</p>
+  </div>
+
+  <div class="card">
+    <div class="input-row">
+      <input id="inp" type="text" placeholder="输入新任务，回车添加...">
+      <button onclick="addTask()">添加</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="stats">
+      <div class="stat"><div class="num" id="stTotal">0</div><div class="label">全部</div></div>
+      <div class="stat"><div class="num" id="stActive">0</div><div class="label">待完成</div></div>
+      <div class="stat"><div class="num" id="stDone">0</div><div class="label">已完成</div></div>
+    </div>
+    <div class="filters">
+      <button class="active" onclick="setFilter('all',this)">全部</button>
+      <button onclick="setFilter('active',this)">待完成</button>
+      <button onclick="setFilter('done',this)">已完成</button>
+    </div>
+    <ul class="task-list" id="list"></ul>
+    <div class="empty" id="empty" style="display:none;">暂无任务，添加一个吧</div>
+  </div>
+</div>
+
+<script>
+/* ===== 数据层：localStorage 持久化 ===== */
+const KEY = 'todo_list_v1';
+function load() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch(e) { return []; } }
+function save() { localStorage.setItem(KEY, JSON.stringify(tasks)); }
+
+/* ===== 逻辑层：任务增删改查 ===== */
+let tasks = load();
+let filter = 'all';
+
+function addTask() {
+  const inp = document.getElementById('inp');
+  const text = inp.value.trim();
+  if (!text) { inp.focus(); return; }
+  tasks.push({ id: Date.now(), text: text, done: false });
+  save(); inp.value = ''; inp.focus(); render();
+}
+
+function toggleTask(id) {
+  for (let i = 0; i < tasks.length; i++) {
+    if (tasks[i].id === id) { tasks[i].done = !tasks[i].done; break; }
+  }
+  save(); render();
+}
+
+function delTask(id) {
+  if (!confirm('确定删除该任务？')) return;
+  tasks = tasks.filter(function(t) { return t.id !== id; });
+  save(); render();
+}
+
+function setFilter(f, btn) {
+  filter = f;
+  const btns = document.querySelectorAll('.filters button');
+  for (let i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+  btn.classList.add('active');
+  render();
+}
+
+/* ===== 视图层：渲染列表与统计 ===== */
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function render() {
+  const total = tasks.length;
+  let done = 0;
+  for (let i = 0; i < total; i++) if (tasks[i].done) done++;
+  document.getElementById('stTotal').textContent = total;
+  document.getElementById('stActive').textContent = total - done;
+  document.getElementById('stDone').textContent = done;
+
+  let shown = tasks;
+  if (filter === 'active') shown = tasks.filter(function(t) { return !t.done; });
+  if (filter === 'done') shown = tasks.filter(function(t) { return t.done; });
+
+  const list = document.getElementById('list');
+  let html = '';
+  for (let i = 0; i < shown.length; i++) {
+    const t = shown[i];
+    html += '<li class="task">'
+         + '<div class="check' + (t.done ? ' done' : '') + '" onclick="toggleTask(' + t.id + ')"></div>'
+         + '<div class="text' + (t.done ? ' done' : '') + '">' + esc(t.text) + '</div>'
+         + '<button class="del" onclick="delTask(' + t.id + ')" title="删除">✕</button>'
+         + '</li>';
+  }
+  list.innerHTML = html;
+  document.getElementById('empty').style.display = shown.length ? 'none' : 'block';
+}
+
+/* 回车快捷添加 */
+document.getElementById('inp').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') addTask();
+});
+
+/* 首次打开时初始化种子数据，方便预览 */
+if (!tasks.length) {
+  tasks = [
+    { id: 1, text: '完成项目周报', done: false },
+    { id: 2, text: '整理需求文档', done: false },
+    { id: 3, text: '回复客户邮件', done: true }
+  ];
+  save();
+}
+render();
+</script>
+</body>
+</html>

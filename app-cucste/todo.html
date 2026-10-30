@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>待办事项列表</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: #f0f4f8;
+    min-height: 100vh;
+    padding: 32px 16px;
+  }
+  .app {
+    max-width: 560px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 6px 24px rgba(26, 111, 196, 0.10);
+    overflow: hidden;
+  }
+  header {
+    background: #1a6fc4;
+    color: #fff;
+    padding: 24px 28px;
+  }
+  header h1 { font-size: 22px; margin-bottom: 4px; }
+  header p { font-size: 13px; opacity: 0.85; }
+  .add-bar {
+    display: flex;
+    gap: 10px;
+    padding: 20px 28px;
+    border-bottom: 1px solid #eef2f6;
+  }
+  .add-bar input {
+    flex: 1;
+    padding: 12px 14px;
+    border: 2px solid #dbe4ec;
+    border-radius: 10px;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .add-bar input:focus { border-color: #1a6fc4; }
+  .add-bar button {
+    padding: 0 22px;
+    background: #1a6fc4;
+    color: #fff;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .add-bar button:hover { background: #155a9e; }
+  .filters {
+    display: flex;
+    gap: 8px;
+    padding: 16px 28px 4px;
+  }
+  .filters button {
+    padding: 6px 16px;
+    border: 1px solid #dbe4ec;
+    background: #fff;
+    color: #5a6b7c;
+    border-radius: 999px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .filters button.active {
+    background: #1a6fc4;
+    border-color: #1a6fc4;
+    color: #fff;
+  }
+  ul#list { list-style: none; padding: 12px 28px 8px; }
+  ul#list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 4px;
+    border-bottom: 1px solid #f2f5f8;
+    animation: fadeIn 0.25s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+  ul#list li input[type="checkbox"] {
+    width: 20px; height: 20px;
+    accent-color: #1a6fc4;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  ul#list li span {
+    flex: 1;
+    font-size: 15px;
+    color: #2c3e50;
+    word-break: break-all;
+    cursor: pointer;
+  }
+  ul#list li.done span {
+    text-decoration: line-through;
+    color: #a0aec0;
+  }
+  ul#list li .del {
+    border: none;
+    background: transparent;
+    color: #e05555;
+    font-size: 18px;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 6px;
+    flex-shrink: 0;
+  }
+  ul#list li .del:hover { background: #fdeaea; }
+  .empty {
+    text-align: center;
+    color: #a0aec0;
+    font-size: 14px;
+    padding: 36px 0;
+  }
+  .stats {
+    display: flex;
+    justify-content: space-between;
+    padding: 16px 28px 24px;
+    font-size: 13px;
+    color: #5a6b7c;
+  }
+  .stats b { color: #1a6fc4; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>待办事项列表</h1>
+    <p>添加、完成、删除任务，数据自动保存在浏览器</p>
+  </header>
+
+  <div class="add-bar">
+    <input id="input" type="text" placeholder="输入新任务，回车或点添加" maxlength="100">
+    <button id="addBtn">添加</button>
+  </div>
+
+  <div class="filters">
+    <button data-f="all" class="active">全部</button>
+    <button data-f="active">未完成</button>
+    <button data-f="done">已完成</button>
+  </div>
+
+  <ul id="list"></ul>
+  <div class="empty" id="empty" style="display:none;">暂无任务，先添加一条吧</div>
+
+  <div class="stats">
+    <span>共 <b id="total">0</b> 项</span>
+    <span>已完成 <b id="doneCount">0</b> 项</span>
+    <span>剩余 <b id="left">0</b> 项</span>
+  </div>
+</div>
+
+<script>
+  // ===== 数据层：localStorage 持久化 =====
+  var STORAGE_KEY = 'todo_list_v1';
+  var todos = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  var filter = 'all';
+
+  function save() { localStorage.setItem(STORAGE_KEY, JSON.stringify(todos)); }
+
+  // ===== 业务层：增删改查 =====
+  function addTodo(text) {
+    text = text.trim();
+    if (!text) return;
+    todos.unshift({ id: Date.now(), text: text, done: false });
+    save(); render();
+  }
+  function toggleTodo(id) {
+    var t = todos.find(function(x) { return x.id === id; });
+    if (t) { t.done = !t.done; save(); render(); }
+  }
+  function removeTodo(id) {
+    todos = todos.filter(function(x) { return x.id !== id; });
+    save(); render();
+  }
+
+  // ===== 视图层：渲染列表、筛选、统计 =====
+  function render() {
+    var list = document.getElementById('list');
+    var visible = todos.filter(function(t) {
+      if (filter === 'active') return !t.done;
+      if (filter === 'done') return t.done;
+      return true;
+    });
+
+    list.innerHTML = visible.map(function(t) {
+      return '<li class="' + (t.done ? 'done' : '') + '">' +
+        '<input type="checkbox" ' + (t.done ? 'checked' : '') + ' data-id="' + t.id + '">' +
+        '<span data-id="' + t.id + '">' + escapeHtml(t.text) + '</span>' +
+        '<button class="del" data-id="' + t.id + '" title="删除">×</button>' +
+      '</li>';
+    }).join('');
+
+    document.getElementById('empty').style.display = visible.length ? 'none' : 'block';
+
+    // 统计
+    var done = todos.filter(function(t) { return t.done; }).length;
+    document.getElementById('total').textContent = todos.length;
+    document.getElementById('doneCount').textContent = done;
+    document.getElementById('left').textContent = todos.length - done;
+  }
+
+  // 防止 XSS：转义用户输入
+  function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  // ===== 事件绑定 =====
+  function handleAdd() {
+    var input = document.getElementById('input');
+    addTodo(input.value);
+    input.value = '';
+    input.focus();
+  }
+
+  document.getElementById('addBtn').addEventListener('click', handleAdd);
+  document.getElementById('input').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') handleAdd();
+  });
+
+  // 列表内事件委托（勾选、点击文字切换、删除）
+  document.getElementById('list').addEventListener('click', function(e) {
+    var id = Number(e.target.dataset.id);
+    if (!id) return;
+    if (e.target.type === 'checkbox') toggleTodo(id);
+    else if (e.target.classList.contains('del')) removeTodo(id);
+    else if (e.target.tagName === 'SPAN') toggleTodo(id);
+  });
+
+  // 筛选切换
+  document.querySelectorAll('.filters button').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.querySelectorAll('.filters button').forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      filter = btn.dataset.f;
+      render();
+    });
+  });
+
+  // 首次渲染
+  render();
+</script>
+</body>
+</html>
