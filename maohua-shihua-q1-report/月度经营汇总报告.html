@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>本月经营数据汇总报告 · 数据核对与计算状态</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Microsoft YaHei",sans-serif;background:#f0f5fb;color:#243447}
+.top{background:linear-gradient(135deg,#1a6fc4,#3f8ee0);color:#fff;padding:36px 20px;text-align:center}
+.top h1{font-size:26px;margin-bottom:8px}
+.top p{font-size:15px;opacity:.92}
+.wrap{max-width:980px;margin:0 auto;padding:26px 16px 60px}
+.card{background:#fff;border-radius:14px;padding:24px;box-shadow:0 4px 16px rgba(26,111,196,.1);margin-bottom:20px}
+.card h2{font-size:19px;color:#1a6fc4;margin-bottom:14px;padding-left:10px;border-left:5px solid #1a6fc4}
+.alert{background:#fff4f4;border:1px solid #e08a8a;border-radius:10px;padding:16px;color:#a33;font-size:14.5px;line-height:1.9;margin-bottom:16px}
+.ok{background:#f0faf4;border:1px solid #7cc4a0;border-radius:10px;padding:16px;color:#1e6b47;font-size:14.5px;line-height:1.9;margin-bottom:16px}
+table{width:100%;border-collapse:collapse;font-size:14.5px}
+th{background:#1a6fc4;color:#fff;padding:11px 10px;text-align:left}
+td{padding:11px 10px;border-bottom:1px solid #e8eff6}
+tr:nth-child(even) td{background:#f8fbff}
+.tag{display:inline-block;padding:2px 10px;border-radius:20px;font-size:12.5px;font-weight:bold}
+.tag.wait{background:#fff0e0;color:#a35a1a}
+.tag.need{background:#ffe9e9;color:#c0392b}
+.tag.done{background:#e0f4ea;color:#1e6b47}
+ul{margin-left:22px;line-height:2.1;font-size:14.5px}
+.note{color:#6b7b8d;font-size:13.5px;line-height:1.9;margin-top:12px}
+footer{text-align:center;color:#8fa3b8;font-size:13px;padding:20px 0}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>本月经营数据汇总报告</h1>
+  <p>数据核对 · 营收成本统计 · 毛利净利核算 · 库存预警（交付状态版）</p>
+</div>
+<div class="wrap">
+
+  <div class="card">
+    <h2>一、交付状态说明（真实状态，未编造数据）</h2>
+    <div class="alert">
+      ⚠ <b>6 个源数据文件至今未进入沙箱</b>：已对 /ws、/work、/tmp、/srv/tenants/tppcucste、宿主 workspace 及全盘 2 小时内新增文件做了多轮扫描，xlsx / xls / csv / docx / json 业务文件命中数为 <b>0</b>。<br>
+      因此本报告不包含任何财务数字——<b>无中生有的营收和成本会误导经营决策，本页所有计算项标记为「待数据」</b>。
+    </div>
+    <div class="ok">
+      ✅ 文件到位后执行顺序（预计 5 分钟内完成并重发）：<br>
+      ① 6 文件逻辑冲突核对（营收-明细勾稽、成本-采购单勾稽、库存-出入库勾稽）→ ② 本月总营收/总采购成本/人力成本/其他杂费统计 → ③ 毛利润、净利润计算 → ④ 库存预警商品清单 → ⑤ 导出 Word/PDF 汇总报告
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>二、逐项执行状态</h2>
+    <table>
+      <tr><th>任务项</th><th>口径</th><th>状态</th></tr>
+      <tr><td>1. 六文件逻辑冲突核对</td><td>营收↔销售明细、成本↔采购单、库存↔出入库流水三向勾稽</td><td><span class="tag need">缺源文件</span></td></tr>
+      <tr><td>2. 本月总营收</td><td>销售明细合计（含税/未税分列）</td><td><span class="tag need">待数据</span></td></tr>
+      <tr><td>3. 总采购成本</td><td>本月采购入库单合计</td><td><span class="tag need">待数据</span></td></tr>
+      <tr><td>4. 人力成本</td><td>工资表应发合计（含社保公积金）</td><td><span class="tag need">待数据</span></td></tr>
+      <tr><td>5. 其他杂费</td><td>费用报销单合计（办公/物流/水电等）</td><td><span class="tag need">待数据</span></td></tr>
+      <tr><td>6. 毛利润</td><td>总营收 − 总采购成本（销货成本）</td><td><span class="tag need">待数据</span></td></tr>
+      <tr><td>7. 净利润</td><td>毛利润 − 人力成本 − 其他杂费 − 税费</td><td><span class="tag need">待数据</span></td></tr>
+      <tr><td>8. 库存预警商品</td><td>现有库存 ≤ 安全库存 或 周转 ≥ 阈值</td><td><span class="tag need">待数据</span></td></tr>
+      <tr><td>9. 汇总报告导出文档</td><td>Word(.docx) / PDF</td><td><span class="tag wait">模板就绪·待回填</span></td></tr>
+      <tr><td>10. 报告产物写入沙箱 + 交付</td><td>sandbox_write + deliver</td><td><span class="tag done">本次已完成</span></td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>三、待回填核算表（空表结构已就绪）</h2>
+    <table>
+      <tr><th>项目</th><th>金额（元）</th><th>数据来源文件</th></tr>
+      <tr><td>本月总营收</td><td>待回填</td><td>销售明细表</td></tr>
+      <tr><td>总采购成本（销货成本）</td><td>待回填</td><td>采购单表</td></tr>
+      <tr><td><b>毛利润</b>（营收−采购成本）</td><td><b>待回填</b></td><td>计算项</td></tr>
+      <tr><td>人力成本</td><td>待回填</td><td>工资表</td></tr>
+      <tr><td>其他杂费</td><td>待回填</td><td>费用报销表</td></tr>
+      <tr><td>税费</td><td>待回填</td><td>税费表</td></tr>
+      <tr><td><b>净利润</b>（毛利−人力−杂费−税）</td><td><b>待回填</b></td><td>计算项</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>四、库存预警规则（已配置，待数据执行）</h2>
+    <ul>
+      <li><b>红色预警</b>：现有库存 ≤ 安全库存 × 50%（缺货高风险，需立即补货）</li>
+      <li><b>黄色预警</b>：现有库存 ≤ 安全库存（低于安全线，需排单补货）</li>
+      <li><b>滞销预警</b>：近 60 天无出库记录且库存金额占比偏高</li>
+      <li>输出字段：商品编码 / 品名 / 现有库存 / 安全库存 / 缺口数量 / 建议补货量</li>
+    </ul>
+    <p class="note">说明：以上为规则与表结构，具体商品清单须读取库存表后生成。</p>
+  </div>
+
+  <div class="card">
+    <h2>五、下一步需要你提供</h2>
+    <div class="ok">
+      请把 <b>6 个文件以文件形式拖入对话框发送</b>（发文件本体，不是文件名文字、不是截图）。收到后本页会立即回填全部真实数字，并追加导出 Word 汇总报告交付给你。
+    </div>
+  </div>
+
+</div>
+<footer>本月经营数据汇总报告 · 数据状态如实呈现 · 不含编造数字</footer>
+</body>
+</html>
