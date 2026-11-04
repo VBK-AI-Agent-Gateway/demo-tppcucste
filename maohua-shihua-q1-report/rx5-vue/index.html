@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<!-- 荣威RX5 网页版车机系统 H5 · Vue3 + TailwindCSS (CDN零构建, WebView可直接跑)
+     适配: 10.4"竖屏中控优先 / 横屏自适应; 触控热区≥48px; D挡行车安全遮罩 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#0E1116">
+<title>RX5 · 洛神座舱 HMI</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config={darkMode:'class',theme:{extend:{colors:{
+  bg:'#0E1116',card:'#181C22',card2:'#20262E',line:'rgba(79,195,247,.14)',
+  accent:'#4FC3F7',ok:'#4CD787',warn:'#FFB74D',danger:'#FF5C5C',muted:'#8A9199'}}}}
+</script>
+<style>
+html,body{height:100%;overflow:hidden}
+body{font-family:'MiSans','PingFang SC',sans-serif;-webkit-tap-highlight-color:transparent}
+.tbtn{min-width:48px;min-height:48px}
+.pop{animation:pop .22s ease}
+@keyframes pop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.slide{animation:slide .28s ease}
+@keyframes slide{from{transform:translateX(100%)}to{transform:none}}
+::-webkit-scrollbar{display:none}
+input[type=range]{accent-color:#4fc3f7;min-height:44px}
+</style>
+</head>
+<body class="bg-bg text-white select-none">
+<div id="app" class="h-full"></div>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script src="./hmi.js"></script>
+</body>
+</html>
