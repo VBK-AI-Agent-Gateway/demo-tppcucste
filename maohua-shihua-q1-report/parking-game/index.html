@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<!-- 荣威RX5 · 泊车大白挑战 (网页小游戏) · Vue3 免构建 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>RX5 · 泊车大白挑战</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+html,body{height:100%;overflow:hidden;touch-action:none}
+body{background:#0E1116;color:#E8ECF1;font-family:'PingFang SC',sans-serif;-webkit-tap-highlight-color:transparent}
+canvas{touch-action:none}
+b{font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body class="select-none">
+<div id="app" class="max-w-[480px] mx-auto h-screen flex flex-col">
+  <div class="flex justify-between items-center px-4 py-2 text-sm bg-[#181C22] border-b border-[rgba(79,195,247,.14)]">
+    <b class="text-[#4FC3F7]">🚙 RX5 泊车大白挑战</b>
+    <span>得分 <b id="score">0</b> · 关 <b id="lvl">1</b></span>
+  </div>
+  <div class="flex-1 relative">
+    <canvas id="cv" class="absolute inset-0 w-full h-full"></canvas>
+    <div id="msg" class="absolute inset-0 flex flex-col items-center justify-center bg-black/70 gap-3 text-center px-6">
+      <div class="text-4xl">🅿️</div>
+      <div class="text-lg font-bold">把小白车倒进蓝色车位</div>
+      <div class="text-xs text-[#8A9199]">方向键/屏幕按钮控制 · 别撞红色障碍</div>
+      <button id="startBtn" class="bg-[#4FC3F7] text-[#0B1118] font-bold rounded-full px-8 py-3">开始游戏</button>
+    </div>
+  </div>
+  <div class="bg-[#181C22] border-t border-[rgba(79,195,247,.14)] p-3 grid grid-cols-3 gap-2">
+    <div class="flex col-span-3 justify-center gap-3 mb-1">
+      <button data-act="L" class="bg-[#20262E] rounded-xl w-20 h-12 text-lg">⬅ 左转</button>
+      <button data-act="R" class="bg-[#20262E] rounded-xl w-20 h-12 text-lg">右转 ➡</button>
+    </div>
+    <button data-act="F" class="col-span-1 bg-[#4FC3F7] text-[#0B1118] rounded-xl h-14 font-bold">▲ 前进</button>
+    <button data-act="S" class="bg-[#20262E] rounded-xl h-14">■ 停</button>
+    <button data-act="B" class="bg-[#FFB74D] text-[#0B1118] rounded-xl h-14 font-bold">▼ 倒车</button>
+  </div>
+</div>
+<script>
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d');
+let W,H;function fit(){W=cv.width=cv.clientWidth*devicePixelRatio;H=cv.height=cv.clientHeight*devicePixelRatio}
+fit();addEventListener('resize',fit);
+const S={run:false,x:0,y:0,a:0,v:0,score:0,lvl:1,obs:[],slot:null,tire:[]};
+const keys={};
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=1;
+  if(['arrowup','arrowdown','arrowleft','arrowright'].includes(e.key.toLowerCase()))e.preventDefault()});
+addEventListener('keyup',e=>keys[e.key.toLowerCase()]=0);
+document.querySelectorAll('[data-act]').forEach(b=>{const a=b.dataset.act;
+  b.addEventListener('pointerdown',()=>keys[a]=1);b.addEventListener('pointerup',()=>keys[a]=0);
+  b.addEventListener('pointerleave',()=>keys[a]=0)});
+function reset(){const l=S.lvl;S.x=W*0.2;S.y=H*0.85;S.a=-Math.PI/2;S.v=0;
+  S.obs=[];const n=3+l;
+  for(let i=0;i<n;i++){S.obs.push({x:Math.random()*(W-120)+60,y:Math.random()*(H*0.55)+40,r:18+Math.random()*10})}
+  S.slot={x:W*(0.35+Math.random()*0.3),y:60+l*8,w:90,h:52};
+}
+function draw(){ctx.clearRect(0,0,W,H);
+  // 背景网格
+  ctx.strokeStyle='rgba(79,195,247,.06)';ctx.lineWidth=1;
+  for(let i=0;i<W;i+=40*devicePixelRatio){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,H);ctx.stroke()}
+  for(let i=0;i<H;i+=40*devicePixelRatio){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(W,i);ctx.stroke()}
+  // 车位
+  ctx.strokeStyle='#4FC3F7';ctx.lineWidth=3;ctx.setLineDash([8,6]);
+  ctx.strokeRect(S.slot.x-S.slot.w/2,S.slot.y,S.slot.w,S.slot.h);ctx.setLineDash([]);
+  ctx.fillStyle='rgba(79,195,247,.12)';ctx.fillRect(S.slot.x-S.slot.w/2,S.slot.y,S.slot.w,S.slot.h);
+  // 障碍
+  S.obs.forEach(o=>{ctx.fillStyle='#FF5C5C';ctx.beginPath();ctx.arc(o.x,o.y,o.r,0,7);ctx.fill();
+    ctx.strokeStyle='rgba(255,92,92,.4)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(o.x,o.y,o.r+5,0,7);ctx.stroke()});
+  // 小车
+  ctx.save();ctx.translate(S.x,S.y);ctx.rotate(S.a);
+  ctx.fillStyle='#F2F5F9';ctx.roundRect(-26,-14,52,28,6);ctx.fill();
+  ctx.fillStyle='#0E1116';ctx.fillRect(-8,-10,10,20);
+  ctx.fillStyle='#4FC3F7';ctx.beginPath();ctx.arc(14,0,4,0,7);ctx.fill();
+  ctx.restore();
+  // HUD
+  document.getElementById('score').textContent=S.score;
+  document.getElementById('lvl').textContent=S.lvl;
+}
+function step(){
+  if(!S.run)return;
+  const acc=keys.f||keys.F?0.6:keys.b||keys.B?-0.45:0; // 保留F/B兼容
+  const kb=(keys.arrowup?0.6:0)+(keys.arrowdown?-0.45:0);
+  const a=acc||kb;
+  S.v=Math.max(-4,Math.min(4,S.v+a*0.35));
+  S.v*=0.94; // 摩擦
+  const dir=keys.arrowleft||keys.L?-1:keys.arrowright||keys.R?1:0;
+  if(Math.abs(S.v)>0.2)S.a+=dir*0.055*Math.sign(S.v);
+  S.x+=Math.cos(S.a)*S.v*2;S.y+=Math.sin(S.a)*S.v*2;
+  // 边界
+  if(S.x<20||S.x>W-20||S.y<20||S.y>H-20){crash('撞到边界!')}
+  // 障碍碰撞
+  for(const o of S.obs){const dx=S.x-o.x,dy=S.y-o.y;
+    if(Math.hypot(dx,dy)<o.r+20){crash('撞到障碍物!')}}
+  // 停车判定
+  const inSlot=S.x>S.slot.x-S.slot.w/2+10&&S.x<S.slot.x+S.slot.w/2-10
+    &&S.y>S.slot.y+6&&S.y<S.slot.y+S.slot.h-6;
+  if(inSlot&&Math.abs(S.v)<0.5){win()}
+  S.score=Math.max(0,S.score-0.02);
+  draw();requestAnimationFrame(step);
+}
+function crash(t){S.run=false;S.score=Math.max(0,S.score-30);
+  document.getElementById('msg').style.display='flex';
+  document.getElementById('msg').innerHTML=`<div class="text-4xl">💥</div><div class="text-lg font-bold">${t}</div>
+    <div class="text-xs text-[#8A9199]">当前得分 ${Math.round(S.score)}</div>
+    <button id="startBtn" class="bg-[#4FC3F7] text-[#0B1118] font-bold rounded-full px-8 py-3">重试</button>`;
+  bindStart()}
+function win(){S.run=false;S.score+=100+S.lvl*20;S.lvl++;
+  document.getElementById('msg').style.display='flex';
+  document.getElementById('msg').innerHTML=`<div class="text-4xl">🎉</div><div class="text-lg font-bold">完美泊车！+${100+S.lvl*20}</div>
+    <div class="text-xs text-[#8A9199]">第 ${S.lvl} 关 · 车位更窄 · 障碍更多</div>
+    <button id="startBtn" class="bg-[#4FC3F7] text-[#0B1118] font-bold rounded-full px-8 py-3">下一关</button>`;
+  bindStart()}
+function bindStart(){const b=document.getElementById('startBtn');
+  if(b)b.onclick=()=>{document.getElementById('msg').style.display='none';reset();S.run=true;step()}}
+document.getElementById('startBtn').onclick=()=>{document.getElementById('msg').style.display='none';reset();S.run=true;step()};
+draw();
+</script>
+</body>
+</html>
