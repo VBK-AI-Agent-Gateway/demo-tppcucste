@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<!-- 川菜馆扫码点餐 H5 · Vue3 + TailwindCSS(CDN) 单文件零构建
+     顾客端: 分类浏览/规格弹窗/购物车/桌号/微信模拟支付
+     后厨端: 订单列表 + 小票预览(辣度必印) + 出餐 -->
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>蜀香门第 · 扫码点餐</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{font-family:"PingFang SC","Microsoft YaHei",sans-serif;color:#3B2A20;background:#FAF6F0}
+.no-sb::-webkit-scrollbar{display:none}
+.pop{animation:pop .2s ease}
+@keyframes pop{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+</style>
+</head>
+<body>
+<div id="app" class="max-w-[480px] mx-auto min-h-screen bg-[#FAF6F0] relative pb-32">
+  <!-- 顶栏 -->
+  <div class="sticky top-0 z-30 bg-[#C8102E] text-white px-4 py-3 flex justify-between items-center">
+    <div><div class="font-bold text-lg">🌶 蜀香门第</div>
+      <div class="text-[11px] opacity-80">扫码点餐 · 桌号 {{ST.table}}</div></div>
+    <div class="flex gap-2">
+      <button class="text-xs bg-white/15 rounded-full px-3 py-1.5" @click="ST.view='kitchen'">👨‍🍳 后厨端</button>
+      <button class="text-xs bg-white/15 rounded-full px-3 py-1.5" @click="ST.view='menu'">菜单</button>
+    </div>
+  </div>
+
+  <!-- 顾客端 -->
+  <template v-if="ST.view==='menu'">
+    <div class="sticky top-[60px] z-20 bg-[#FAF6F0] flex gap-2 overflow-x-auto no-sb px-4 py-2.5">
+      <button v-for="c in CATS" :key="c" class="text-xs px-4 py-2 rounded-full border whitespace-nowrap"
+        :class="ST.cat===c?'bg-[#C8102E] text-white border-[#C8102E]':'bg-white border-[#EADFD3]'"
+        @click="ST.cat=c">{{c}}</button>
+    </div>
+    <div class="px-4 pt-1 space-y-3">
+      <div v-for="m in filtered" :key="m.n" class="bg-white rounded-2xl border border-[#EADFD3] p-3 flex gap-3">
+        <div class="w-20 h-20 rounded-xl bg-gradient-to-br from-orange-100 to-red-100 flex items-center justify-center text-3xl shrink-0">🍲</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-1.5"><b class="text-[15px]">{{m.n}}</b>
+            <span v-if="m.sign" class="text-[9px] bg-[#C8102E] text-white px-1.5 py-0.5 rounded">招牌</span></div>
+          <div class="text-[11px] text-[#8A7A6E] mt-0.5 truncate">{{m.d}}</div>
+          <div class="mt-1 text-xs"><span class="text-[#C8102E]">{{SP(m.sp[0])||'——'}}</span>
+            <span class="text-[10px] text-[#8A7A6E] ml-1">{{m.sp.join('/')||'不辣'}}</span></div>
+          <div class="flex justify-between items-end mt-1">
+            <div><span class="text-[#C8102E] font-bold text-lg">¥{{m.p}}</span><span class="text-[10px] text-[#8A7A6E]"> 起</span></div>
+            <button class="bg-[#C8102E] text-white w-9 h-9 rounded-full text-lg font-bold pop active:scale-90 transition" @click="open(m)">＋</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <!-- 后厨端 -->
+  <div v-if="ST.view==='kitchen'" class="p-4 space-y-3">
+    <div class="flex justify-between items-center">
+      <b class="text-lg">👨‍🍳 后厨订单 <span class="text-xs font-normal text-[#8A7A6E]">({{ST.orders.length}})</span></b>
+      <button class="text-xs bg-[#3B2A20] text-white px-3 py-1.5 rounded-full" @click="ST.view='menu'">返回点餐</button>
+    </div>
+    <div v-for="o in ST.orders" :key="o.id" class="bg-white border border-[#EADFD3] rounded-2xl p-3">
+      <div class="flex justify-between border-b border-[#EADFD3] pb-2 mb-2">
+        <b class="text-sm">单 {{o.id}} · 桌 {{o.table}}</b><span class="text-[11px] text-[#8A7A6E]">{{o.ts}}</span></div>
+      <div v-for="(it,i) in o.items" :key="i" class="text-[13px] py-1.5 border-b border-[#EADFD3]/60 last:border-0">
+        <div class="flex justify-between"><span><b>{{it.qty}}×</b> {{it.n}} <span v-if="it.size" class="text-[#C8102E]">[{{it.size}}]</span></span><span>¥{{it.p*it.qty}}</span></div>
+        <div class="text-[11px] text-[#8A7A6E] mt-0.5 flex flex-wrap gap-x-3">
+          <span v-if="it.sp" class="text-[#C8102E] font-bold">辣度:{{it.sp}} {{SP(it.sp)}}</span>
+          <span v-if="it.fish">鱼种:{{it.fish}}</span>
+          <span v-if="it.adds.length">加料:{{it.adds.join('+')}}</span>
+          <span v-if="it.nt" class="text-[#D4A017] font-bold">{{it.nt}}</span></div>
+      </div>
+      <div class="mt-2 flex gap-2 items-center"><span class="text-sm font-bold ml-auto">合计 ¥{{o.total}}</span>
+        <button class="text-xs border border-[#EADFD3] px-3 py-1.5 rounded-full" @click="o.receipt||(o.receipt=makeR(o))">🖨 小票预览</button>
+        <button class="text-xs bg-green-600 text-white px-3 py-1.5 rounded-full" @click="o.done=true">✅ 出餐</button></div>
+      <div v-if="o.receipt" class="mt-2 bg-[#FFFBEF] border border-[#D4A017]/40 rounded-xl p-3 font-mono text-[11px] whitespace-pre-line">{{o.receipt}}</div>
+    </div>
+    <div v-if="!ST.orders.length" class="text-center text-[#8A7A6E] py-16 text-sm">暂无订单</div>
+  </div>
+
+  <!-- 支付成功 -->
+  <div v-if="pay" class="fixed inset-0 z-40 bg-black/60 flex items-center justify-center">
+    <div class="bg-white rounded-3xl p-8 text-center pop"><div class="text-5xl">✅</div>
+      <div class="font-bold text-lg mt-2">微信模拟支付成功</div><div class="text-sm text-[#8A7A6E]">已同步后厨出单</div></div>
+  </div>
+
+  <!-- 规格弹窗 -->
+  <div v-if="sp.cur" class="fixed inset-0 z-40">
+    <div class="absolute inset-0 bg-black/50" @click="sp.cur=null"></div>
+    <div class="absolute bottom-0 inset-x-0 max-w-[480px] mx-auto bg-white rounded-t-3xl p-4 pop max-h-[82vh] overflow-y-auto no-sb">
+      <div class="flex justify-between items-center"><b class="text-lg">{{sp.cur.n}}</b>
+        <button class="text-[#8A7A6E] text-lg w-9 h-9" @click="sp.cur=null">✕</button></div>
+      <div class="text-sm text-[#8A7A6E] mt-0.5">¥{{sp.cur.p}} · {{sp.cur.d}}</div>
+      <div v-if="sp.cur.sp.length" class="mt-3">
+        <div class="text-xs font-bold mb-1.5">🌶 辣度（后厨小票必印）</div>
+        <div class="flex gap-2"><button v-for="l in sp.cur.sp" :key="l" class="flex-1 py-2.5 rounded-xl border text-sm font-bold"
+          :class="sp.l===l?'bg-[#C8102E] text-white border-[#C8102E]':'border-[#EADFD3]'" @click="sp.l=l">{{l}} {{SP(l)}}</button></div>
+      </div>
+      <div v-if="sp.cur.size" class="mt-3"><div class="text-xs font-bold mb-1.5">分量（适配人数）</div>
+        <div class="flex gap-2"><button v-for="(s,i) in sp.cur.size" :key="s" class="flex-1 py-2.5 rounded-xl border text-sm"
+          :class="sp.sz===i?'bg-[#C8102E] text-white border-[#C8102E]':'border-[#EADFD3]'" @click="sp.sz=i">{{s}}<span v-if="sp.cur.szp[i]"> +¥{{sp.cur.szp[i]}}</span></button></div></div>
+      <div v-if="sp.cur.fish" class="mt-3"><div class="text-xs font-bold mb-1.5">鱼种</div>
+        <div class="flex gap-2"><button v-for="f in sp.cur.fish" :key="f" class="flex-1 py-2.5 rounded-xl border text-sm"
+          :class="sp.f===f?'bg-[#C8102E] text-white border-[#C8102E]':'border-[#EADFD3]'" @click="sp.f=f">{{f}}<span v-if="f==='黑鱼'"> +¥8</span></button></div></div>
+      <div v-if="sp.cur.add" class="mt-3"><div class="text-xs font-bold mb-1.5">加料（+¥6/份）</div>
+        <div class="flex gap-2 flex-wrap"><button v-for="a in sp.cur.add" :key="a" class="py-2 px-4 rounded-xl border text-sm"
+          :class="sp.ads.includes(a)?'bg-[#D4A017] text-white border-[#D4A017]':'border-[#EADFD3]'"
+          @click="sp.ads.includes(a)?sp.ads.splice(sp.ads.indexOf(a),1):sp.ads.push(a)">{{a}}</button></div></div>
+      <div v-if="sp.cur.free" class="mt-3">
+        <label class="flex items-center gap-2 text-sm font-bold text-[#C8102E]">
+          <input type="checkbox" v-model="sp.free"> 免辣（后厨备注：免辣走红油）</label></div>
+      <div class="mt-3"><div class="text-xs font-bold mb-1.5">备注</div>
+        <input v-model="sp.nt" class="w-full border border-[#EADFD3] rounded-xl px-3 py-2.5 text-sm" placeholder="如: 少油 / 不要香菜"></div>
+      <button class="w-full bg-[#C8102E] text-white font-bold py-3.5 rounded-2xl mt-4" @click="add">加入购物车 · ¥{{pnow()}}</button>
+    </div>
+  </div>
+
+  <!-- 购物车 -->
+  <div v-if="ST.cart.length&&ST.view==='menu'&&!sp.cur" class="fixed bottom-4 inset-x-4 max-w-[448px] mx-auto z-30">
+    <button class="w-full bg-[#3B2A20] text-white rounded-full py-4 px-5 flex justify-between items-center shadow-2xl" @click="cart=true">
+      <span>🛒 {{cnt}}件 · <b class="text-[#D4A017] text-lg">¥{{tot}}</b></span><span class="text-xs opacity-70">去结算 ›</span></button>
+  </div>
+  <div v-if="cart" class="fixed inset-0 z-50">
+    <div class="absolute inset-0 bg-black/50" @click="cart=false"></div>
+    <div class="absolute bottom-0 inset-x-0 max-w-[480px] mx-auto bg-white rounded-t-3xl p-4 pop max-h-[78vh] overflow-y-auto no-sb">
+      <div class="flex justify-between items-center mb-2"><b>🛒 购物车</b>
+        <div class="text-sm">桌号 <input v-model="ST.table" class="w-16 border border-[#EADFD3] rounded px-2 py-1 text-center"></div></div>
+      <div v-for="x in ST.cart" :key="x.k" class="flex justify-between items-center py-2 border-b border-[#EADFD3] text-sm">
+        <div><b>{{x.n}}</b> <span v-if="x.sp" class="text-[#C8102E] text-xs font-bold">{{x.sp}}</span>
+          <div class="text-[10px] text-[#8A7A6E]">{{[x.size,x.fish,x.adds.length?x.adds.join('+'):'',x.nt].filter(Boolean).join(' · ')||'常规件'}}</div></div>
+        <div class="flex items-center gap-2">
+          <button class="w-7 h-7 rounded-full bg-[#FAF6F0]" @click="x.qty>1?x.qty--:ST.cart.splice(ST.cart.indexOf(x),1)">−</button>
+          <b class="w-4 text-center">{{x.qty}}</b>
+          <button class="w-7 h-7 rounded-full bg-[#C8102E] text-white" @click="x.qty++">＋</button>
+          <span class="w-12 text-right font-bold">¥{{x.p*x.qty}}</span></div>
+      </div>
+      <button class="w-full bg-[#C8102E] text-white font-bold py-3.5 rounded-2xl mt-3" @click="pay=1;submit();cart=false;setTimeout(()=>pay=0,1800)">微信模拟支付 · 提交订单（¥{{tot}}）</button>
+    </div>
+  </div>
+  <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#3B2A20] text-white text-xs px-4 py-2 rounded-full opacity-0 transition-opacity z-50 pointer-events-none"></div>
+</div>
+<script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+<script>
+const {createApp,reactive,computed}=Vue;
+/* 分类固定六项 + 29道菜品 */
+const CATS=['招牌热菜','经典热菜','凉菜','汤羹','主食小吃','饮品'];
+const MENU=[
+ {n:'麻婆豆腐',c:'招牌热菜',p:28,sp:['中辣','特辣'],d:'麻辣烫嫩鲜香·牛肉末煸酥撒花椒面',sign:1},
+ {n:'水煮鱼',c:'招牌热菜',p:88,sp:['中辣','特辣'],size:['例份 2-4人','大份 4-6人'],szp:[0,30],fish:['草鱼','黑鱼'],add:['豆芽','青菜','粉条'],d:'鱼片滑嫩·热油炝香辣椒花椒',sign:1},
+ {n:'回锅肉',c:'招牌热菜',p:48,sp:['微辣'],size:['例份 2-4人','大份 4-6人'],szp:[0,12],add:['蒜苗'],free:1,d:'灯盏窝+郫县豆瓣甜面酱',sign:1},
+ {n:'宫保鸡丁',c:'招牌热菜',p:42,sp:['微辣'],size:['例份 2-4人','大份 4-6人'],szp:[0,10],d:'荔枝味型·花生酥脆',sign:1},
+ {n:'水煮肉片',c:'招牌热菜',p:52,sp:['中辣'],add:['豆芽','青菜','粉条'],d:'上浆滑熟·刀口辣椒炝香',sign:1},
+ {n:'辣子鸡丁',c:'招牌热菜',p:58,sp:['特辣'],d:'炸两遍外酥里嫩·干香麻辣',sign:1},
+ {n:'鱼香肉丝',c:'经典热菜',p:38,sp:['微辣'],free:1,d:'泡椒姜蒜糖醋·见油不见汤'},
+ {n:'夫妻肺片',c:'经典热菜',p:46,sp:['中辣'],d:'卤牛肉牛杂·红油花椒面芝麻'},
+ {n:'毛血旺',c:'经典热菜',p:68,sp:['特辣'],d:'鸭血毛肚黄喉·汁浓味厚'},
+ {n:'干煸豆角',c:'经典热菜',p:32,sp:['中辣'],d:'四季豆虎皮状·肉末干辣椒'},
+ {n:'酸辣土豆丝',c:'经典热菜',p:22,sp:['微辣'],d:'爽脆酸辣·陈醋调味'},
+ {n:'鱼香茄子',c:'经典热菜',p:36,sp:['微辣'],d:'茄子软糯·咸甜酸辣'},
+ {n:'仔姜牛蛙',c:'经典热菜',p:78,sp:['中辣','特辣'],d:'蛙肉滑嫩·仔姜泡椒爆炒'},
+ {n:'自贡鲜锅兔',c:'经典热菜',p:72,sp:['特辣'],d:'鲜椒仔姜·味厚香浓'},
+ {n:'拍黄瓜',c:'凉菜',p:16,sp:['微辣'],d:'蒜泥辣椒油醋·出餐快'},
+ {n:'口水鸡',c:'凉菜',p:38,sp:['中辣'],d:'红油芝麻花生碎·麻辣回甜'},
+ {n:'蒜泥白肉',c:'凉菜',p:36,sp:['微辣'],d:'五花薄片·蒜味浓郁'},
+ {n:'泡椒凤爪',c:'凉菜',p:28,sp:['微辣'],d:'脆爽紧实·餐前小食'},
+ {n:'酸辣鸭血汤',c:'汤羹',p:26,sp:['中辣'],d:'鸭血嫩滑·开胃解腻'},
+ {n:'开水白菜',c:'汤羹',p:48,sp:[],d:'清汤见底·不辣招牌'},
+ {n:'酸萝卜老鸭汤',c:'汤羹',p:88,sp:[],d:'汤鲜开胃·适合不辣需求'},
+ {n:'担担面',c:'主食小吃',p:18,sp:['中辣'],d:'肉末花生酱·麻辣酸香'},
+ {n:'川味小面',c:'主食小吃',p:16,sp:['中辣'],d:'辣椒油花椒面·豌豆黄豆'},
+ {n:'钟水饺',c:'主食小吃',p:15,sp:['微辣'],d:'红油蒜泥·微辣回甜'},
+ {n:'红糖糍粑',c:'主食小吃',p:18,sp:[],d:'软糯香甜·解辣搭配'},
+ {n:'冰粉',c:'主食小吃',p:10,sp:[],d:'红糖浆·清爽解辣'},
+ {n:'菊花茶',c:'饮品',p:12,sp:[],d:'清火解腻'},
+ {n:'蜂蜜柚子茶',c:'饮品',p:14,sp:[],d:'酸甜可口·润肺解辣'},
+ {n:'酸梅汤',c:'饮品',p:10,sp:[],d:'解辣解腻·夏季热销'},
+];
+const ST=reactive({view:'menu',cat:'招牌热菜',table:'A03',cart:[],orders:[]});
+const sp=reactive({cur:null,l:'',sz:0,f:'',ads:[],free:false,nt:''});
+const SP=l=>({'微辣':'🌶','中辣':'🌶🌶','特辣':'🌶🌶🌶'}[l]||'');
+let _t;const toast=m=>{const t=document.getElementById('toast');t.textContent=m;t.style.opacity=1;clearTimeout(_t);_t=setTimeout(()=>t.style.opacity=0,1600)};
+function pnow(){const m=sp.cur;if(!m)return 0;
+ return m.p+(m.szp?m.szp[sp.sz]:0)+(m.fish&&sp.f==='黑鱼'?8:0)+sp.ads.length*6}
+function open(m){sp.cur=m;sp.l=m.sp[0]||'';sp.sz=0;sp.f=m.fish?m.fish[0]:'';sp.ads=[];sp.free=false;sp.nt=''}
+function add(){const m=sp.cur;
+ const it={n:m.n,p:pnow(),sp:sp.free?'免辣(走红油)':sp.l,size:m.size?m.size[sp.sz].split(' ')[0]:'',
+  fish:m.fish?sp.f:'',adds:[...sp.ads],nt:(sp.free?'【免辣走红油】':'')+(sp.nt||''),qty:1};
+ const k=[it.n,it.sp,it.size,it.fish,it.adds.join(','),it.nt].join('|');
+ const ex=ST.cart.find(x=>x.k===k);
+ if(ex)ex.qty++;else{it.k=k;ST.cart.push(it)}
+ toast('已加入 '+m.n);sp.cur=null}
+function makeR(o){let r='══ 蜀香门第 后厨小票 ══\n桌号:'+o.table+'  单:'+o.id+'  '+o.ts+'\n──────────────────\n';
+ o.items.forEach(x=>{r+=x.qty+'× '+x.n+(x.size?' ['+x.size+']':'')+'\n';
+  if(x.sp)r+='   ★辣度: '+x.sp+' '+SP(x.sp)+'\n';
+  if(x.fish)r+='   鱼种: '+x.fish+'\n';
+  if(x.adds.length)r+='   加料: '+x.adds.join(' + ')+'\n';
+  if(x.nt)r+='   备注: '+x.nt+'\n';});
+ return r+'──────────────────\n合计: ¥'+o.total+'\n══ 生产出单 ══'}
+function submit(){if(!ST.cart.length)return;
+ const o={id:'D'+(Date.now()%100000),table:ST.table,items:JSON.parse(JSON.stringify(ST.cart)),
+  total:ST.cart.reduce((s,x)=>s+x.p*x.qty,0),
+  ts:new Date().toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'})};
+ /* 预留后端: POST /api/order {table, items:[{name,spice,size,fish,addons,note,qty,price}]} */
+ ST.orders.unshift(o);ST.cart=[];toast('下单成功 · 已同步后厨')}
+createApp({
+ data(){return{ST,CATS,MENU,sp,cart:false,pay:false}},
+ computed:{
+  filtered(){return MENU.filter(m=>m.c===ST.cat)},
+  cnt(){return ST.cart.reduce((s,x)=>s+x.qty,0)},
+  tot(){return ST.cart.reduce((s,x)=>s+x.p*x.qty,0)}},
+ methods:{open,add,pnow,makeR,submit,SP}
+}).mount('#app');
+</script>
+</body>
+</html>
